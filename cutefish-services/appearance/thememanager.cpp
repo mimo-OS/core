@@ -26,7 +26,11 @@
 #include <QProcess>
 #include <QFile>
 #include <QDebug>
+#include <QDir>
+#include <QFileInfo>
 #include <QFontDatabase>
+#include <QIcon>
+#include <QStandardPaths>
 static const QByteArray s_systemFontName = QByteArrayLiteral("Font");
 static const QByteArray s_systemFixedFontName = QByteArrayLiteral("FixedFont");
 static const QByteArray s_systemPointFontSize = QByteArrayLiteral("FontSize");
@@ -39,6 +43,11 @@ static QString gtkRc2Path()
 static QString gtk3SettingsIniPath()
 {
     return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String("/gtk-3.0/settings.ini");
+}
+
+static QString gtk4SettingsIniPath()
+{
+    return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + QLatin1String("/gtk-4.0/settings.ini");
 }
 
 ThemeManager *ThemeManager::self()
@@ -75,10 +84,16 @@ ThemeManager::ThemeManager(QObject *parent)
     m_backgroundColor = m_settings->value("BackgroundColor", "#2B8ADA").toString();
     m_cursorTheme = m_settings->value("CursorTheme", "default").toString();
     m_cursorSize = m_settings->value("CursorSize", 24).toInt();
-    m_iconTheme = m_settings->value("IconTheme", "Crule").toString();
+    m_iconTheme = m_settings->value("IconTheme", "Cutefish").toString();
+    if (m_iconTheme == "WhiteSur-dark" || m_iconTheme.isEmpty()) {
+        m_iconTheme = "Cutefish";
+        m_settings->setValue("IconTheme", m_iconTheme);
+    }
+    QIcon::setThemeName(m_iconTheme);
 
     // Synchronize toolkit and compositor cursor settings at session startup.
     applyCursorSettings();
+
 
     // Init fonts.
     if (!m_settings->contains(s_systemFixedFontName)) {
@@ -109,6 +124,8 @@ ThemeManager::ThemeManager(QObject *parent)
 
     // 登陆后更新 fontconfig
     updateFontConfig();
+    updateGtk3Config();
+    updateDesktopColorScheme();
 
 }
 
@@ -126,6 +143,7 @@ void ThemeManager::setDarkMode(bool darkMode)
     m_settings->setValue("DarkMode", darkMode);
 
     updateGtk3Config();
+    updateDesktopColorScheme();
 
     emit darkModeChanged(m_isDarkMode);
 }
@@ -229,7 +247,7 @@ void ThemeManager::updateGtk2Config()
 
 QString ThemeManager::systemFont()
 {
-    return m_settings->value(s_systemFontName, "Noto Sans").toString();
+    return m_settings->value(s_systemFontName, "SF Pro Text").toString();
 }
 
 void ThemeManager::setSystemFont(const QString &fontFamily)
@@ -309,9 +327,10 @@ void ThemeManager::setBackgroundColor(QString color)
 
 void ThemeManager::updateGtk3Config()
 {
-    QSettings settings(gtk3SettingsIniPath(), QSettings::IniFormat);
-    settings.clear();
-    settings.beginGroup("Settings");
+    const QString gtk3Path = gtk3SettingsIniPath();
+    QDir().mkpath(QFileInfo(gtk3Path).absolutePath());
+    QSettings settings(gtk3Path, QSettings::IniFormat);
+    settings.beginGroup(QStringLiteral("Settings"));
 
     // font
     settings.setValue("gtk-font-name", QString("%1 %2").arg(systemFont()).arg(systemFontPointSize()));
@@ -323,9 +342,247 @@ void ThemeManager::updateGtk3Config()
     settings.setValue("gtk-cursor-theme-size", m_cursorSize);
     // other
     settings.setValue("gtk-enable-animations", true);
+    settings.setValue("gtk-decoration-layout", "close,minimize,maximize:");
     // theme
     settings.setValue("gtk-theme-name", isDarkMode() ? "Cutefish-dark" : "Cutefish-light");
+    settings.endGroup();
     settings.sync();
+
+    const QString gtk4Path = gtk4SettingsIniPath();
+    QDir().mkpath(QFileInfo(gtk4Path).absolutePath());
+    QSettings gtk4Settings(gtk4Path, QSettings::IniFormat);
+    gtk4Settings.beginGroup(QStringLiteral("Settings"));
+    gtk4Settings.setValue("gtk-font-name", QString("%1 %2").arg(systemFont()).arg(systemFontPointSize()));
+    gtk4Settings.setValue("gtk-application-prefer-dark-theme", isDarkMode());
+    gtk4Settings.setValue("gtk-icon-theme-name", m_iconTheme);
+    gtk4Settings.setValue("gtk-cursor-theme-name", m_cursorTheme);
+    gtk4Settings.setValue("gtk-cursor-theme-size", m_cursorSize);
+    gtk4Settings.setValue("gtk-enable-animations", true);
+    gtk4Settings.setValue("gtk-decoration-layout", "close,minimize,maximize:");
+    gtk4Settings.setValue("gtk-theme-name", isDarkMode() ? "Cutefish-dark" : "Cutefish-light");
+    gtk4Settings.endGroup();
+    gtk4Settings.sync();
+
+    // GTK 3 & GTK 4 Libadwaita CSS Overrides & Traffic Light Styling
+    const QString gtkCssContent = QStringLiteral(
+        "@define-color accent_color #007AFF;\n"
+        "@define-color accent_bg_color #007AFF;\n"
+        "@define-color window_bg_color %1;\n"
+        "@define-color window_fg_color %2;\n"
+        "@define-color headerbar_bg_color %1;\n"
+        "@define-color headerbar_fg_color %2;\n"
+        "\n"
+        "/* macOS Traffic Light Buttons for GTK3, GTK4 & Libadwaita */\n"
+        "headerbar windowcontrols {\n"
+        "    margin-left: 6px;\n"
+        "}\n"
+        "headerbar button.titlebutton.close,\n"
+        "headerbar windowcontrols button.close,\n"
+        "windowcontrols button.close,\n"
+        "windowcontrols button.close:backdrop {\n"
+        "    background-color: #FF5F56 !important;\n"
+        "    border: 1px solid #E0443E !important;\n"
+        "    border-radius: 50% !important;\n"
+        "    min-width: 13px !important;\n"
+        "    min-height: 13px !important;\n"
+        "    max-width: 13px !important;\n"
+        "    max-height: 13px !important;\n"
+        "    padding: 0 !important;\n"
+        "    margin: 0 3px !important;\n"
+        "    color: transparent !important;\n"
+        "}\n"
+        "headerbar button.titlebutton.minimize,\n"
+        "headerbar windowcontrols button.minimize,\n"
+        "windowcontrols button.minimize,\n"
+        "windowcontrols button.minimize:backdrop {\n"
+        "    background-color: #FFBD2E !important;\n"
+        "    border: 1px solid #DEA123 !important;\n"
+        "    border-radius: 50% !important;\n"
+        "    min-width: 13px !important;\n"
+        "    min-height: 13px !important;\n"
+        "    max-width: 13px !important;\n"
+        "    max-height: 13px !important;\n"
+        "    padding: 0 !important;\n"
+        "    margin: 0 3px !important;\n"
+        "    color: transparent !important;\n"
+        "}\n"
+        "headerbar button.titlebutton.maximize,\n"
+        "headerbar windowcontrols button.maximize,\n"
+        "windowcontrols button.maximize,\n"
+        "windowcontrols button.maximize:backdrop {\n"
+        "    background-color: #27C93F !important;\n"
+        "    border: 1px solid #1AAB29 !important;\n"
+        "    border-radius: 50% !important;\n"
+        "    min-width: 13px !important;\n"
+        "    min-height: 13px !important;\n"
+        "    max-width: 13px !important;\n"
+        "    max-height: 13px !important;\n"
+        "    padding: 0 !important;\n"
+        "    margin: 0 3px !important;\n"
+        "    color: transparent !important;\n"
+        "}\n"
+        "headerbar button.titlebutton image,\n"
+        "headerbar button.titlebutton label,\n"
+        "windowcontrols button image,\n"
+        "windowcontrols button label {\n"
+        "    opacity: 0 !important;\n"
+        "}\n"
+        "headerbar button.titlebutton:hover image,\n"
+        "headerbar button.titlebutton:hover label,\n"
+        "windowcontrols button:hover image,\n"
+        "windowcontrols button:hover label {\n"
+        "    opacity: 0.8 !important;\n"
+        "}\n"
+    ).arg(isDarkMode() ? QStringLiteral("#1C1C1E") : QStringLiteral("#F2F2F7"),
+          isDarkMode() ? QStringLiteral("#FFFFFF") : QStringLiteral("#1C1C1E"));
+
+    for (const QString &configDir : {QStringLiteral("/gtk-3.0"), QStringLiteral("/gtk-4.0")}) {
+        const QString cssPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation) + configDir + QStringLiteral("/gtk.css");
+        QDir().mkpath(QFileInfo(cssPath).absolutePath());
+        QFile cssFile(cssPath);
+        if (cssFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&cssFile);
+            out << gtkCssContent;
+            cssFile.close();
+        }
+    }
+
+    // Default Cursor Theme Fallback (~/.icons/default/index.theme)
+    const QString defaultIconDir = QDir::homePath() + QStringLiteral("/.icons/default");
+    QDir().mkpath(defaultIconDir);
+    QFile indexTheme(defaultIconDir + QStringLiteral("/index.theme"));
+    if (indexTheme.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&indexTheme);
+        out << "[Icon Theme]\n";
+        out << "Name=Default\n";
+        out << "Comment=Default Cursor Theme\n";
+        out << "Inherits=" << m_cursorTheme << "\n";
+        indexTheme.close();
+    }
+
+    // GTK 2 (~/.gtkrc-2.0)
+    const QString gtk2Path = gtkRc2Path();
+    QFile gtk2File(gtk2Path);
+    if (gtk2File.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&gtk2File);
+        out << "include \"/usr/share/themes/" << (isDarkMode() ? "Cutefish-dark" : "Cutefish-light") << "/gtk-2.0/gtkrc\"\n";
+        out << "gtk-theme-name=\"" << (isDarkMode() ? "Cutefish-dark" : "Cutefish-light") << "\"\n";
+        out << "gtk-icon-theme-name=\"" << m_iconTheme << "\"\n";
+        out << "gtk-font-name=\"" << systemFont() << " " << systemFontPointSize() << "\"\n";
+        gtk2File.close();
+    }
+}
+
+void ThemeManager::updateDesktopColorScheme()
+{
+    // 1. KDE / KWin Configuration (~/.config/kdeglobals & ~/.config/kwinrc)
+    QSettings kwinSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                               + QStringLiteral("/kwinrc"),
+                           QSettings::IniFormat);
+    kwinSettings.beginGroup(QStringLiteral("org.kde.kdecoration2"));
+    kwinSettings.setValue(QStringLiteral("ButtonsOnLeft"), QStringLiteral("XIA"));
+    kwinSettings.setValue(QStringLiteral("ButtonsOnRight"), QString());
+    kwinSettings.setValue(QStringLiteral("library"), QStringLiteral("org.cutefish.decoration"));
+    kwinSettings.endGroup();
+
+    kwinSettings.beginGroup(QStringLiteral("Touchpad"));
+    kwinSettings.setValue(QStringLiteral("TapToClick"), true);
+    kwinSettings.setValue(QStringLiteral("NaturalScroll"), true);
+    kwinSettings.setValue(QStringLiteral("PointerAcceleration"), 0.2);
+    kwinSettings.endGroup();
+
+    kwinSettings.beginGroup(QStringLiteral("Gestures"));
+    kwinSettings.setValue(QStringLiteral("Enabled"), true);
+    kwinSettings.endGroup();
+    kwinSettings.sync();
+
+    // Configure Touchpad Gestures and Tiling Shortcuts in kglobalshortcutsrc
+    QSettings shortcutSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                                    + QStringLiteral("/kglobalshortcutsrc"),
+                                QSettings::IniFormat);
+    shortcutSettings.beginGroup(QStringLiteral("kwin"));
+    shortcutSettings.setValue(QStringLiteral("Window Quick Tile Left"), QStringLiteral("Meta+Left,Meta+Left,Quick Tile Window to the Left"));
+    shortcutSettings.setValue(QStringLiteral("Window Quick Tile Right"), QStringLiteral("Meta+Right,Meta+Right,Quick Tile Window to the Right"));
+    shortcutSettings.setValue(QStringLiteral("Window Absolute Maximize"), QStringLiteral("Meta+Up,Meta+Up,Maximize"));
+    shortcutSettings.setValue(QStringLiteral("Window Minimize"), QStringLiteral("Meta+Down,Meta+Down,Minimize Window"));
+    shortcutSettings.endGroup();
+
+    shortcutSettings.beginGroup(QStringLiteral("org.kde.KWin.Gestures"));
+    shortcutSettings.setValue(QStringLiteral("SwipeUp3"), QStringLiteral("qdbus com.cutefish.Launcher /Launcher com.cutefish.Launcher.toggle"));
+    shortcutSettings.setValue(QStringLiteral("SwipeDown3"), QStringLiteral("qdbus com.cutefish.Overview /Overview com.cutefish.Overview.toggle"));
+    shortcutSettings.setValue(QStringLiteral("SwipeLeft3"), QStringLiteral("Switch to Next Desktop"));
+    shortcutSettings.setValue(QStringLiteral("SwipeRight3"), QStringLiteral("Switch to Previous Desktop"));
+    shortcutSettings.setValue(QStringLiteral("SwipeUp4"), QStringLiteral("qdbus com.cutefish.Overview /Overview com.cutefish.Overview.toggle"));
+    shortcutSettings.setValue(QStringLiteral("SwipeDown4"), QStringLiteral("qdbus com.cutefish.Launcher /Launcher com.cutefish.Launcher.toggle"));
+    shortcutSettings.endGroup();
+    shortcutSettings.sync();
+
+    // Configure libinput-gestures (~/.config/libinput-gestures.conf)
+    const QString libinputGesturesPath = QDir::homePath() + QStringLiteral("/.config/libinput-gestures.conf");
+    QFile gestureFile(libinputGesturesPath);
+    if (gestureFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&gestureFile);
+        out << "gesture swipe up 3 qdbus com.cutefish.Launcher /Launcher com.cutefish.Launcher.toggle\n";
+        out << "gesture swipe down 3 qdbus com.cutefish.Overview /Overview com.cutefish.Overview.toggle\n";
+        out << "gesture swipe left 3 qdbus org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.next\n";
+        out << "gesture swipe right 3 qdbus org.kde.KWin /VirtualDesktopManager org.kde.KWin.VirtualDesktopManager.previous\n";
+        out << "gesture swipe up 4 qdbus com.cutefish.Overview /Overview com.cutefish.Overview.toggle\n";
+        out << "gesture swipe down 4 qdbus com.cutefish.Launcher /Launcher com.cutefish.Launcher.toggle\n";
+        gestureFile.close();
+    }
+
+    QProcess::startDetached(QStringLiteral("libinput-gestures-setup"), {QStringLiteral("restart")});
+
+    QSettings kdeSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                              + QStringLiteral("/kdeglobals"),
+                          QSettings::IniFormat);
+    kdeSettings.beginGroup(QStringLiteral("General"));
+    kdeSettings.setValue(QStringLiteral("ColorScheme"), isDarkMode()
+                             ? QStringLiteral("BreezeDark")
+                             : QStringLiteral("Breeze"));
+    kdeSettings.endGroup();
+
+    kdeSettings.beginGroup(QStringLiteral("Icons"));
+    kdeSettings.setValue(QStringLiteral("Theme"), m_iconTheme);
+    kdeSettings.endGroup();
+
+    kdeSettings.beginGroup(QStringLiteral("KDE"));
+    kdeSettings.setValue(QStringLiteral("widgetStyle"), QStringLiteral("Breeze"));
+    kdeSettings.endGroup();
+    kdeSettings.sync();
+
+    // Broadcast KDE Palette & Style Change Signals
+    QDBusMessage paletteChanged = QDBusMessage::createSignal(
+        QStringLiteral("/KGlobalSettings"),
+        QStringLiteral("org.kde.KGlobalSettings"),
+        QStringLiteral("notifyChange"));
+    paletteChanged << 0 << 0; // PaletteChanged
+    QDBusConnection::sessionBus().send(paletteChanged);
+
+    QDBusMessage styleChanged = QDBusMessage::createSignal(
+        QStringLiteral("/KGlobalSettings"),
+        QStringLiteral("org.kde.KGlobalSettings"),
+        QStringLiteral("notifyChange"));
+    styleChanged << 1 << 0; // StyleChanged
+    QDBusConnection::sessionBus().send(styleChanged);
+
+    QDBusInterface kwin(QStringLiteral("org.kde.KWin"), QStringLiteral("/KWin"),
+                        QStringLiteral("org.kde.KWin"), QDBusConnection::sessionBus());
+    if (kwin.isValid())
+        kwin.asyncCall(QStringLiteral("reconfigure"));
+
+    // 2. GNOME / GTK Desktop GSettings
+    const QString gsettings = QStandardPaths::findExecutable(QStringLiteral("gsettings"));
+    if (!gsettings.isEmpty()) {
+        const QString schema = QStringLiteral("org.gnome.desktop.interface");
+        QProcess::execute(gsettings, {QStringLiteral("set"), schema, QStringLiteral("color-scheme"),
+                                      isDarkMode() ? QStringLiteral("prefer-dark") : QStringLiteral("prefer-light")});
+        QProcess::execute(gsettings, {QStringLiteral("set"), schema, QStringLiteral("gtk-theme"),
+                                      isDarkMode() ? QStringLiteral("Cutefish-dark") : QStringLiteral("Cutefish-light")});
+        QProcess::execute(gsettings, {QStringLiteral("set"), schema, QStringLiteral("icon-theme"), m_iconTheme});
+        QProcess::execute(gsettings, {QStringLiteral("set"), schema, QStringLiteral("gtk-decoration-layout"),
+                                      QStringLiteral("close,minimize,maximize:")});
+    }
 }
 
 void ThemeManager::applyFontSettings()
@@ -473,11 +730,52 @@ QString ThemeManager::iconTheme() const
 
 void ThemeManager::setIconTheme(const QString &iconTheme)
 {
-    if (m_iconTheme == iconTheme)
+    if (iconTheme.isEmpty())
         return;
 
     m_iconTheme = iconTheme;
     m_settings->setValue("IconTheme", m_iconTheme);
+    QIcon::setThemeName(m_iconTheme);
+
+    // 1. Update GTK 2, 3, 4 configs
     updateGtk3Config();
+
+    // 2. Update KDE / Qt config (~/.config/kdeglobals [Icons] Theme)
+    QSettings kdeSettings(QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+                              + QStringLiteral("/kdeglobals"),
+                          QSettings::IniFormat);
+    kdeSettings.beginGroup(QStringLiteral("Icons"));
+    kdeSettings.setValue(QStringLiteral("Theme"), m_iconTheme);
+    kdeSettings.endGroup();
+    kdeSettings.sync();
+
+    // 3. Update GNOME / GTK via gsettings
+    const QString gsettings = QStandardPaths::findExecutable(QStringLiteral("gsettings"));
+    if (!gsettings.isEmpty()) {
+        QProcess::execute(gsettings, {QStringLiteral("set"), QStringLiteral("org.gnome.desktop.interface"),
+                                      QStringLiteral("icon-theme"), m_iconTheme});
+    }
+
+    // 4. Send DBus notification to all KDE/Qt apps
+    QDBusMessage message = QDBusMessage::createSignal(QStringLiteral("/KGlobalSettings"),
+                                                      QStringLiteral("org.kde.KGlobalSettings"),
+                                                      QStringLiteral("notifyChange"));
+    message << 0;
+    message << 0;
+    QDBusConnection::sessionBus().send(message);
+
+    // 5. Notify Cutefish Launcher & Dock to clear icon cache & refresh icons
+    QDBusInterface launcher(QStringLiteral("com.cutefish.Launcher"), QStringLiteral("/Launcher"),
+                            QStringLiteral("com.cutefish.Launcher"), QDBusConnection::sessionBus());
+    if (launcher.isValid()) {
+        launcher.asyncCall(QStringLiteral("clearPixmapCache"));
+    }
+
+    QDBusInterface dock(QStringLiteral("com.cutefish.Dock"), QStringLiteral("/Dock"),
+                        QStringLiteral("com.cutefish.Dock"), QDBusConnection::sessionBus());
+    if (dock.isValid()) {
+        dock.asyncCall(QStringLiteral("clearPixmapCache"));
+    }
+
     emit iconThemeChanged();
 }

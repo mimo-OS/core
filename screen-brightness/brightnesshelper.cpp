@@ -19,6 +19,7 @@
  */
 
 #include "brightnesshelper.h"
+#include <QTimer>
 
 BrightnessHelper::BrightnessHelper(QObject *parent)
     : QObject(parent)
@@ -94,11 +95,9 @@ void BrightnessHelper::setBrightness(int value)
         value = 0;
     if (value > 100)
         value = 100;
-    anime.setDuration(85);
-    anime.setStartValue(actual);
-    const int end = static_cast<int>(value /100.0 * maxValue);
-    anime.setEndValue(end);
-    anime.start();
+    const int end = static_cast<int>(value / 100.0 * maxValue);
+    writeBrightness(end);
+    QTimer::singleShot(0, qApp, &QCoreApplication::quit);
 }
 
 void BrightnessHelper::increaseBrightness()

@@ -76,9 +76,24 @@ int BrightnessManager::brightness()
 
 void BrightnessManager::setValue(int value)
 {
+    if (!m_dirname.isEmpty()) {
+        QFile file(m_dirname + QStringLiteral("/brightness"));
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            int maxB = maxBrightness();
+            if (maxB > 0) {
+                int raw = (value * maxB) / 100;
+                QTextStream s(&file);
+                s << raw << "\n";
+                file.close();
+                handleFileChanged(QString());
+                return;
+            }
+        }
+    }
+
     QProcess process;
-    process.start("pkexec", QStringList() << "cutefish-screen-brightness" << "--set" << QString::number(value));
-    process.waitForFinished(-1);
+    process.start(QStringLiteral("cutefish-screen-brightness"), QStringList() << QStringLiteral("--set") << QString::number(value));
+    process.waitForFinished(500);
 }
 
 void BrightnessManager::init()

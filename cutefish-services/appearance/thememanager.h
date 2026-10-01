@@ -93,6 +93,7 @@ public:
     void setIconTheme(const QString &iconTheme);
 
     void updateFontConfig();
+    void updateDesktopColorScheme();
 
 signals:
     void darkModeChanged(bool darkMode);

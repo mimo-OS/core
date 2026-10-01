@@ -54,7 +54,7 @@ std::optional<QStringList> getSystemdEnvironment()
         return std::nullopt;
     }
     auto variant = qdbus_cast<QVariant>(arguments[0]);
-    if (variant.type() != QVariant::StringList) {
+    if (variant.typeId() != QMetaType::QStringList) {
         return std::nullopt;
     }
 
@@ -132,7 +132,7 @@ void Application::initEnvironments()
     if (qEnvironmentVariableIsEmpty("XDG_CACHE_HOME"))
         qputenv("XDG_CACHE_HOME", QDir::home().absoluteFilePath(QStringLiteral(".cache")).toLocal8Bit());
     if (qEnvironmentVariableIsEmpty("XDG_DATA_DIRS"))
-        qputenv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/");
+        qputenv("XDG_DATA_DIRS", "/usr/local/share/:/usr/share/:/var/lib/flatpak/exports/share/");
     if (qEnvironmentVariableIsEmpty("XDG_CONFIG_DIRS"))
         qputenv("XDG_CONFIG_DIRS", "/etc/xdg");
 
@@ -162,6 +162,15 @@ void Application::initEnvironments()
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     qputenv("QT_QPA_PLATFORMTHEME", "cutefish");
     
+    // Global application menu support for GTK and Qt applications
+    qputenv("UBUNTU_MENUPROXY", "1");
+    QByteArray gtkModules = qgetenv("GTK_MODULES");
+    if (!gtkModules.contains("appmenu-gtk-module")) {
+        if (!gtkModules.isEmpty()) gtkModules += ":";
+        gtkModules += "appmenu-gtk-module";
+        qputenv("GTK_MODULES", gtkModules);
+    }
+
     // ref: https://stackoverflow.com/questions/34399993/qml-performance-issue-when-updating-an-item-in-presence-of-many-non-overlapping
     qputenv("QT_QPA_UPDATE_IDLE_TIME", "10");
 

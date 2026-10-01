@@ -54,20 +54,23 @@ void ProcessManager::start()
     if (m_kwinReady)
         return;
 
-    const QString serviceName = QStringLiteral("org.kde.KWinWrapper");
-    m_kwinWatcher = new QDBusServiceWatcher(serviceName,
-                                             QDBusConnection::sessionBus(),
-                                             QDBusServiceWatcher::WatchForRegistration,
-                                             this);
+    m_kwinWatcher = new QDBusServiceWatcher(this);
+    m_kwinWatcher->setConnection(QDBusConnection::sessionBus());
+    m_kwinWatcher->setWatchMode(QDBusServiceWatcher::WatchForRegistration);
+    m_kwinWatcher->addWatchedService(QStringLiteral("org.kde.KWinWrapper"));
+    m_kwinWatcher->addWatchedService(QStringLiteral("org.kde.KWin"));
     connect(m_kwinWatcher, &QDBusServiceWatcher::serviceRegistered,
             this, [this](const QString &) {
         startAfterKWinReady();
     });
 
     if (QDBusConnectionInterface *interface = QDBusConnection::sessionBus().interface()) {
-        const QDBusReply<bool> reply = interface->isServiceRegistered(serviceName);
-        if (reply.isValid() && reply.value())
+        const QDBusReply<bool> wrapperReply = interface->isServiceRegistered(QStringLiteral("org.kde.KWinWrapper"));
+        const QDBusReply<bool> kwinReply = interface->isServiceRegistered(QStringLiteral("org.kde.KWin"));
+        if ((wrapperReply.isValid() && wrapperReply.value()) ||
+            (kwinReply.isValid() && kwinReply.value())) {
             startAfterKWinReady();
+        }
     }
 }
 
@@ -220,12 +223,38 @@ void ProcessManager::startDaemonProcess()
         process->start();
         process->waitForStarted();
 
+        const QString progName = pair.first;
+        const QStringList progArgs = pair.second;
+
         // Add to map
         // exitCode() is not a valid way to test a process that is still
         // running. The old check discarded long-lived daemons immediately
         // after starting them.
         if (process->state() != QProcess::NotRunning) {
-            m_coreProcesses.insert(pair.first, process);
+            m_coreProcesses.insert(progName, process);
+
+            connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                    this, [this, progName, progArgs](int exitCode, QProcess::ExitStatus status) {
+                qWarning() << "Core daemon" << progName << "finished with code" << exitCode << "status" << status;
+                m_coreProcesses.remove(progName);
+                if (QCoreApplication::closingDown())
+                    return;
+                QTimer::singleShot(1000, this, [this, progName, progArgs]() {
+                    if (m_coreProcesses.contains(progName) || QCoreApplication::closingDown())
+                        return;
+                    QProcess *proc = new QProcess;
+                    proc->setProcessChannelMode(QProcess::ForwardedChannels);
+                    proc->setProgram(progName);
+                    proc->setArguments(progArgs);
+                    proc->start();
+                    proc->waitForStarted();
+                    if (proc->state() != QProcess::NotRunning) {
+                        m_coreProcesses.insert(progName, proc);
+                    } else {
+                        proc->deleteLater();
+                    }
+                });
+            });
         } else {
             qWarning() << "Failed to start daemon:" << pair.first
                        << process->errorString();
@@ -247,8 +276,36 @@ void ProcessManager::loadAutoStartProcess()
             QSettings desktop(d.absoluteFilePath(file), QSettings::IniFormat);
             desktop.beginGroup("Desktop Entry");
 
-            if (desktop.contains("OnlyShowIn"))
+            if (desktop.value("Hidden", false).toBool() || desktop.value("NoDisplay", false).toBool())
                 continue;
+
+            const QString onlyShowIn = desktop.value("OnlyShowIn").toString();
+            if (!onlyShowIn.isEmpty()) {
+                const QStringList onlyList = onlyShowIn.split(';', Qt::SkipEmptyParts);
+                bool matches = false;
+                for (const QString &item : onlyList) {
+                    if (item.trimmed().compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
+                        matches = true;
+                        break;
+                    }
+                }
+                if (!matches)
+                    continue;
+            }
+
+            const QString notShowIn = desktop.value("NotShowIn").toString();
+            if (!notShowIn.isEmpty()) {
+                const QStringList notList = notShowIn.split(';', Qt::SkipEmptyParts);
+                bool blocked = false;
+                for (const QString &item : notList) {
+                    if (item.trimmed().compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if (blocked)
+                    continue;
+            }
 
             const QString execValue = desktop.value("Exec").toString();
 
