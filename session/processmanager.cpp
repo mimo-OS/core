@@ -30,6 +30,7 @@
 #include <QTimer>
 #include <QDir>
 #include <QDBusConnectionInterface>
+#include <QDBusInterface>
 #include <QDBusReply>
 #include <QDBusServiceWatcher>
 
@@ -80,6 +81,18 @@ void ProcessManager::startAfterKWinReady()
         return;
 
     m_kwinReady = true;
+
+    // Explicitly unload KWin zoom and scale effects so desktop is never zoomed in on login
+    QDBusInterface kwinEffects(QStringLiteral("org.kde.KWin"),
+                               QStringLiteral("/Effects"),
+                               QStringLiteral("org.kde.kwin.Effects"),
+                               QDBusConnection::sessionBus());
+    if (kwinEffects.isValid()) {
+        kwinEffects.call(QStringLiteral("unloadEffect"), QStringLiteral("zoom"));
+        kwinEffects.call(QStringLiteral("unloadEffect"), QStringLiteral("scale"));
+        kwinEffects.call(QStringLiteral("unloadEffect"), QStringLiteral("cutefish_scale"));
+    }
+
     if (m_kwinWatcher) {
         m_kwinWatcher->deleteLater();
         m_kwinWatcher = nullptr;

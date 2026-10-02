@@ -161,7 +161,10 @@ void Application::initEnvironments()
     // still start under Xwayland instead of aborting.
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     qputenv("QT_QPA_PLATFORMTHEME", "cutefish");
-    
+    qputenv("QT_ENABLE_HIGHDPI_SCALING", "0");
+    qputenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0");
+    qputenv("QT_SCALE_FACTOR", "1.0");
+
     // Global application menu support for GTK and Qt applications
     qputenv("UBUNTU_MENUPROXY", "1");
     QByteArray gtkModules = qgetenv("GTK_MODULES");
