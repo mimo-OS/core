@@ -300,8 +300,13 @@ public:
             offeredFormats.insert(mimeType);
         }
 
-        if (m_mimeData->hasText() && !offeredFormats.contains(s_utf8TextMimeType))
-            offer(s_utf8TextMimeType);
+        if (m_mimeData->hasText()) {
+            if (!offeredFormats.contains(s_textMimeType)) offer(s_textMimeType);
+            if (!offeredFormats.contains(s_utf8TextMimeType)) offer(s_utf8TextMimeType);
+            if (!offeredFormats.contains(QStringLiteral("UTF8_STRING"))) offer(QStringLiteral("UTF8_STRING"));
+            if (!offeredFormats.contains(QStringLiteral("TEXT"))) offer(QStringLiteral("TEXT"));
+            if (!offeredFormats.contains(QStringLiteral("STRING"))) offer(QStringLiteral("STRING"));
+        }
 
         if (m_mimeData->hasImage()) {
             for (const QString &mimeType : imageMimeTypes()) {
@@ -339,6 +344,8 @@ protected:
                 buffer.open(QIODevice::WriteOnly);
                 image.save(&buffer, imageFormatForMimeType(mimeType).constData());
             }
+        } else if (m_mimeData->hasText() && (mimeType == s_textMimeType || mimeType == s_utf8TextMimeType || mimeType == QStringLiteral("UTF8_STRING") || mimeType == QStringLiteral("TEXT") || mimeType == QStringLiteral("STRING") || mimeType.startsWith(QStringLiteral("text/")))) {
+            data = m_mimeData->text().toUtf8();
         } else {
             QString requestedMimeType = mimeType;
             if (mimeType == s_utf8TextMimeType && !m_mimeData->hasFormat(mimeType))

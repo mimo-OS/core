@@ -5,6 +5,7 @@
 #include <QImage>
 #include <QMimeData>
 #include <QPixmap>
+#include <QUrl>
 #include <QVariant>
 
 Clipboard::Clipboard(QObject *parent)
@@ -43,6 +44,11 @@ void Clipboard::onDataChanged()
     const QByteArray timeStamp = mimeData->data(QStringLiteral("TIMESTAMP"));
 
     QMimeData *newMimeData = new QMimeData;
+
+    if (mimeData->hasText()) {
+        newMimeData->setText(mimeData->text());
+    }
+
     if (mimeData->hasImage()) {
         const QVariant imageData = mimeData->imageData();
         if (imageData.canConvert<QImage>()) {
@@ -57,9 +63,15 @@ void Clipboard::onDataChanged()
         newMimeData->setData(QStringLiteral("TIMESTAMP"), timeStamp);
     }
 
+    if (mimeData->hasUrls()) {
+        newMimeData->setUrls(mimeData->urls());
+    }
+
     for (const QString &format : mimeData->formats()) {
         if (format == QStringLiteral("image/png")
-                || format == QStringLiteral("application/x-qt-image"))
+                || format == QStringLiteral("application/x-qt-image")
+                || format == QStringLiteral("text/plain")
+                || format == QStringLiteral("text/plain;charset=utf-8"))
             continue;
 
         newMimeData->setData(format, mimeData->data(format));
