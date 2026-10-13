@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <cerrno>
 
 Application::Application(int &argc, char **argv)
     : QApplication(argc, argv)
@@ -68,7 +69,7 @@ void Application::initTrash()
 {
     const QByteArray trashDir = QString(QDir::homePath() + "/.local/share/Trash").toLatin1();
 
-    if (::mkdir(trashDir, 0700) != 0)
+    if (::mkdir(trashDir.constData(), 0700) != 0 && errno != EEXIST)
         return;
 
     struct stat buff;
