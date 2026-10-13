@@ -70,7 +70,7 @@ bool isSessionVariable(const QByteArray &name)
 {
     // Check is variable is specific to session.
     return name == "WAYLAND_DISPLAY" || name == "WAYLAND_SOCKET" || //
-        name.startsWith("XDG_");
+        name.startsWith("XDG_") || name == "KWIN_WAYLAND_NO_PERMISSION_CHECKS";
 }
 
 void setEnvironmentVariable(const QByteArray &name, const QByteArray &value)
@@ -141,6 +141,17 @@ void Application::initEnvironments()
     // restricted Wayland interface and the shell never sees a window list.
     if (qEnvironmentVariableIsEmpty("XDG_MENU_PREFIX"))
         qputenv("XDG_MENU_PREFIX", "cutefish-");
+
+    if (qEnvironmentVariableIsEmpty("KWIN_WAYLAND_NO_PERMISSION_CHECKS"))
+        qputenv("KWIN_WAYLAND_NO_PERMISSION_CHECKS", "1");
+
+    // Pre-build or refresh ksycoca database so KWin and applications find desktop files
+    const QString sycoca = QStandardPaths::findExecutable(QStringLiteral("kbuildsycoca6")).isEmpty()
+        ? QStandardPaths::findExecutable(QStringLiteral("kbuildsycoca5"))
+        : QStandardPaths::findExecutable(QStringLiteral("kbuildsycoca6"));
+    if (!sycoca.isEmpty()) {
+        QProcess::startDetached(sycoca, { QStringLiteral("--noincremental") });
+    }
 
     // Environment
     qputenv("DESKTOP_SESSION", "Cutefish");
