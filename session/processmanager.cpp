@@ -174,33 +174,9 @@ void ProcessManager::startDesktopProcess()
 
     m_desktopStarted = true;
 
-    QList<QPair<QString, QStringList>> list;
-    // Desktop components
-    // The status bar, dock, launcher, desktop and notifications are one process now.
-    list << qMakePair(QString("cutefish-shell"), QStringList());
-
-    for (QPair<QString, QStringList> pair : list) {
-        QProcess *process = new QProcess;
-        process->setProcessChannelMode(QProcess::ForwardedChannels);
-        process->setProgram(pair.first);
-        process->setArguments(pair.second);
-        QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
-        environment.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("wayland"));
-        process->setProcessEnvironment(environment);
-        process->start();
-        process->waitForStarted();
-
-        qDebug() << "Load DE components: " << pair.first << pair.second;
-
-        // Add to map
-        if (process->state() != QProcess::NotRunning) {
-            m_coreProcesses.insert(pair.first, process);
-        } else {
-            qWarning() << "Failed to start desktop process:" << pair.first
-                       << process->errorString();
-            process->deleteLater();
-        }
-    }
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("wayland"));
+    launchManagedProcess(QStringLiteral("cutefish-shell"), QStringList(), environment);
 
     // For CutefishOS. An ordinary application, so the runtime starts it.
     if (QFile("/usr/bin/cutefish-welcome").exists() &&
@@ -221,58 +197,43 @@ void ProcessManager::startDesktopProcess()
 
 void ProcessManager::startDaemonProcess()
 {
-    QList<QPair<QString, QStringList>> list;
-    // The application runtime owns every application start, so it has to be up
-    // before anything that may want to launch one.
-    list << qMakePair(QString("cutefish-appruntime"), QStringList());
-    // This daemon provides the services used by the desktop components.
-    list << qMakePair(QString("cutefish-services"), QStringList());
+    launchManagedProcess(QStringLiteral("cutefish-appruntime"), QStringList());
+    launchManagedProcess(QStringLiteral("cutefish-services"), QStringList());
+}
 
-    for (QPair<QString, QStringList> pair : list) {
-        QProcess *process = new QProcess;
-        process->setProcessChannelMode(QProcess::ForwardedChannels);
-        process->setProgram(pair.first);
-        process->setArguments(pair.second);
-        process->start();
-        process->waitForStarted();
+void ProcessManager::launchManagedProcess(const QString &progName, const QStringList &progArgs, const QProcessEnvironment &env)
+{
+    if (m_coreProcesses.contains(progName) || QCoreApplication::closingDown())
+        return;
 
-        const QString progName = pair.first;
-        const QStringList progArgs = pair.second;
+    QProcess *process = new QProcess(this);
+    process->setProcessChannelMode(QProcess::ForwardedChannels);
+    process->setProgram(progName);
+    process->setArguments(progArgs);
+    if (!env.isEmpty()) {
+        process->setProcessEnvironment(env);
+    }
+    process->start();
+    process->waitForStarted();
 
-        // Add to map
-        // exitCode() is not a valid way to test a process that is still
-        // running. The old check discarded long-lived daemons immediately
-        // after starting them.
-        if (process->state() != QProcess::NotRunning) {
-            m_coreProcesses.insert(progName, process);
+    if (process->state() != QProcess::NotRunning) {
+        m_coreProcesses.insert(progName, process);
+        qDebug() << "Started managed process:" << progName << progArgs;
 
-            connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                    this, [this, progName, progArgs](int exitCode, QProcess::ExitStatus status) {
-                qWarning() << "Core daemon" << progName << "finished with code" << exitCode << "status" << status;
-                m_coreProcesses.remove(progName);
-                if (QCoreApplication::closingDown())
-                    return;
-                QTimer::singleShot(1000, this, [this, progName, progArgs]() {
-                    if (m_coreProcesses.contains(progName) || QCoreApplication::closingDown())
-                        return;
-                    QProcess *proc = new QProcess;
-                    proc->setProcessChannelMode(QProcess::ForwardedChannels);
-                    proc->setProgram(progName);
-                    proc->setArguments(progArgs);
-                    proc->start();
-                    proc->waitForStarted();
-                    if (proc->state() != QProcess::NotRunning) {
-                        m_coreProcesses.insert(progName, proc);
-                    } else {
-                        proc->deleteLater();
-                    }
-                });
+        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                this, [this, progName, progArgs, env](int exitCode, QProcess::ExitStatus status) {
+            qWarning() << "Managed process" << progName << "finished with code" << exitCode << "status" << status;
+            m_coreProcesses.remove(progName);
+            if (QCoreApplication::closingDown())
+                return;
+            QTimer::singleShot(1000, this, [this, progName, progArgs, env]() {
+                launchManagedProcess(progName, progArgs, env);
             });
-        } else {
-            qWarning() << "Failed to start daemon:" << pair.first
-                       << process->errorString();
-            process->deleteLater();
-        }
+        });
+    } else {
+        qWarning() << "Failed to start managed process:" << progName
+                   << process->errorString();
+        process->deleteLater();
     }
 }
 

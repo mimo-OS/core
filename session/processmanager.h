@@ -45,6 +45,7 @@ public:
 private:
     void startAfterKWinReady();
     void stopProcesses(QMap<QString, QProcess *> &processes);
+    void launchManagedProcess(const QString &progName, const QStringList &progArgs, const QProcessEnvironment &env = QProcessEnvironment());
 
 private:
     Application *m_app;
