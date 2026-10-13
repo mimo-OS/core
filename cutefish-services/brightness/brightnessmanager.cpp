@@ -45,7 +45,10 @@ BrightnessManager::~BrightnessManager()
 
 int BrightnessManager::maxBrightness()
 {
-    int max_brightness;
+    if (m_maxBrightness > 0)
+        return m_maxBrightness;
+
+    int max_brightness = -1;
     QFile file(m_dirname + "/max_brightness");
     if (!file.open(QIODevice::ReadOnly)) {
         qWarning() << "reading max brightness failed with error code " << file.error() << file.errorString();
@@ -56,7 +59,8 @@ int BrightnessManager::maxBrightness()
     stream >> max_brightness;
     file.close();
 
-    return max_brightness ? max_brightness : -1;
+    m_maxBrightness = max_brightness ? max_brightness : -1;
+    return m_maxBrightness;
 }
 
 int BrightnessManager::brightness()

@@ -55,6 +55,7 @@ private slots:
 private:
     QFileSystemWatcher *m_fileWatcher;
     int m_actualBacklight;
+    int m_maxBrightness = -1;
     QString m_dirname;
 };
 
