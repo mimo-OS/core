@@ -60,7 +60,7 @@ void CPUManagement::setMode(int value)
         return;
 
     QProcess process;
-    for (int i = 0; i <= m_items.count(); ++i) {
+    for (int i = 0; i < m_items.count(); ++i) {
         process.start("pkexec", QStringList() << "cutefish-cpufreq"
                                               << "-s" << "-c" << QString::number(i)
                                               << "-m" << modeString);
