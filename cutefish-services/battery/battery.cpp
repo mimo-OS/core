@@ -61,7 +61,7 @@ void Battery::refresh()
     QDBusInterface iface(UP_DBUS_SERVICE, m_device->udi(),
                          UP_DBUS_INTERFACE_DEVICE, QDBusConnection::systemBus());
     if (iface.isValid())
-        iface.call("Refresh");
+        iface.asyncCall("Refresh");
 }
 
 bool Battery::isPresent() const
