@@ -258,7 +258,9 @@ void ProcessManager::loadAutoStartProcess()
                 const QStringList onlyList = onlyShowIn.split(';', Qt::SkipEmptyParts);
                 bool matches = false;
                 for (const QString &item : onlyList) {
-                    if (item.trimmed().compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
+                    const QString trimmed = item.trimmed();
+                    if (trimmed.compare(QStringLiteral("mimo"), Qt::CaseInsensitive) == 0 ||
+                        trimmed.compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
                         matches = true;
                         break;
                     }
@@ -272,7 +274,9 @@ void ProcessManager::loadAutoStartProcess()
                 const QStringList notList = notShowIn.split(';', Qt::SkipEmptyParts);
                 bool blocked = false;
                 for (const QString &item : notList) {
-                    if (item.trimmed().compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
+                    const QString trimmed = item.trimmed();
+                    if (trimmed.compare(QStringLiteral("mimo"), Qt::CaseInsensitive) == 0 ||
+                        trimmed.compare(QStringLiteral("Cutefish"), Qt::CaseInsensitive) == 0) {
                         blocked = true;
                         break;
                     }

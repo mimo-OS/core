@@ -92,7 +92,7 @@ Application::Application(int &argc, char **argv)
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/Session"), this);
 
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Cutefish Session"));
+    parser.setApplicationDescription(QStringLiteral("mimo OS Session"));
     parser.addHelpOption();
 
     parser.process(*this);
@@ -140,7 +140,7 @@ void Application::initEnvironments()
     // <prefix>applications.menu; with an empty database KWin denies every
     // restricted Wayland interface and the shell never sees a window list.
     if (qEnvironmentVariableIsEmpty("XDG_MENU_PREFIX"))
-        qputenv("XDG_MENU_PREFIX", "cutefish-");
+        qputenv("XDG_MENU_PREFIX", "mimo-");
 
     if (qEnvironmentVariableIsEmpty("KWIN_WAYLAND_NO_PERMISSION_CHECKS"))
         qputenv("KWIN_WAYLAND_NO_PERMISSION_CHECKS", "1");
@@ -154,9 +154,12 @@ void Application::initEnvironments()
     }
 
     // Environment
-    qputenv("DESKTOP_SESSION", "Cutefish");
-    qputenv("XDG_CURRENT_DESKTOP", "Cutefish");
-    qputenv("XDG_SESSION_DESKTOP", "Cutefish");
+    if (qEnvironmentVariableIsEmpty("DESKTOP_SESSION"))
+        qputenv("DESKTOP_SESSION", "mimo");
+    if (qEnvironmentVariableIsEmpty("XDG_CURRENT_DESKTOP"))
+        qputenv("XDG_CURRENT_DESKTOP", "mimo:Cutefish");
+    if (qEnvironmentVariableIsEmpty("XDG_SESSION_DESKTOP"))
+        qputenv("XDG_SESSION_DESKTOP", "mimo");
 
     const QString gsettings = QStandardPaths::findExecutable(QStringLiteral("gsettings"));
     if (!gsettings.isEmpty()) {
