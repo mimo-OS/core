@@ -26,6 +26,9 @@ target_link_libraries(${TARGET}
 )
 
 install(TARGETS ${TARGET} DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(PROGRAMS cutefish-kwin-wayland-session cutefish-wayland-session DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES cutefish-applications.menu DESTINATION /etc/xdg/menus/)
-install(FILES cutefish-wayland.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/wayland-sessions/)
+install(PROGRAMS cutefish-kwin-wayland-session cutefish-wayland-session mimo-kwin-wayland-session mimo-wayland-session DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES cutefish-applications.menu mimo-applications.menu DESTINATION /etc/xdg/menus/)
+install(FILES cutefish-wayland.desktop mimo-wayland.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/wayland-sessions/)
+
+# Install mimo-session symlink
+install(CODE "execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink cutefish-session \$ENV{DESTDIR}\${CMAKE_INSTALL_FULL_BINDIR}/mimo-session)")

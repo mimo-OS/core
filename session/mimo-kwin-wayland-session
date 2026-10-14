@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -x /usr/bin/mimo-session ]; then
+    exec /usr/bin/mimo-session "$@"
+else
+    exec /usr/bin/cutefish-session "$@"
+fi

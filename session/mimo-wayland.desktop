@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=mimo OS (KWin Wayland)
+Comment=mimo OS desktop session on KWin Wayland
+Exec=/usr/bin/mimo-wayland-session
+TryExec=/usr/bin/kwin_wayland_wrapper
+Type=Application
+DesktopNames=mimo;Cutefish;KDE;
+X-GDM-SessionRegisters=true

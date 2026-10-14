@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# Outer entry point of the mimo OS Wayland session: it sets up the
+# environment KWin itself needs and then becomes the compositor.
+#
+export XDG_MENU_PREFIX=mimo-
+export XDG_CURRENT_DESKTOP=mimo:Cutefish
+export XDG_SESSION_DESKTOP=mimo
+export DESKTOP_SESSION=mimo
+
+export XDG_CONFIG_DIRS="${XDG_CONFIG_DIRS:-/etc/xdg}"
+export XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+
+# Disable KWin's restricted Wayland interface permission checks so that
+# org_kde_plasma_window_management and related shell interfaces can always be bound
+# even if ksycoca database indexing is delayed or in development setups.
+export KWIN_WAYLAND_NO_PERMISSION_CHECKS=1
+
+export QT_ENABLE_HIGHDPI_SCALING=0
+export QT_AUTO_SCREEN_SCALE_FACTOR=0
+export QT_SCALE_FACTOR=1.0
+
+# Memory tuning for glibc allocator across all desktop processes
+export MALLOC_ARENA_MAX=2
+export MALLOC_TRIM_THRESHOLD_=131072
+export MALLOC_MMAP_THRESHOLD_=65536
+
+# Prevent NVIDIA driver bloat when running on non-NVIDIA GPUs
+if [ ! -e /dev/nvidia0 ] && [ -f /usr/share/glvnd/egl_vendor.d/50_mesa.json ]; then
+    export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
+fi
+
+# Pre-build or refresh ksycoca application database cache before KWin starts
+if command -v kbuildsycoca6 >/dev/null 2>&1; then
+    kbuildsycoca6 --noincremental >/dev/null 2>&1 &
+elif command -v kbuildsycoca5 >/dev/null 2>&1; then
+    kbuildsycoca5 --noincremental >/dev/null 2>&1 &
+fi
+
+# Fallback to cutefish-kwin-wayland-session if mimo-kwin-wayland-session is not yet installed in PATH
+SESSION_BIN="/usr/bin/mimo-kwin-wayland-session"
+if [ ! -x "$SESSION_BIN" ]; then
+    SESSION_BIN="/usr/bin/cutefish-kwin-wayland-session"
+fi
+
+exec /usr/bin/kwin_wayland_wrapper --xwayland --exit-with-session "$SESSION_BIN" "$@"
