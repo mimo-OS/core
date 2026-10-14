@@ -188,6 +188,17 @@ void Application::initEnvironments()
     // ref: https://stackoverflow.com/questions/34399993/qml-performance-issue-when-updating-an-item-in-presence-of-many-non-overlapping
     qputenv("QT_QPA_UPDATE_IDLE_TIME", "10");
 
+    // Global memory allocator tuning
+    qputenv("MALLOC_ARENA_MAX", "2");
+    qputenv("MALLOC_TRIM_THRESHOLD_", "131072");
+    qputenv("MALLOC_MMAP_THRESHOLD_", "65536");
+
+    // Dynamic EGL vendor filtering to prevent loading unused NVIDIA drivers on Intel/AMD GPUs
+    if (!QFile::exists(QStringLiteral("/dev/nvidia0")) &&
+        QFile::exists(QStringLiteral("/usr/share/glvnd/egl_vendor.d/50_mesa.json"))) {
+        qputenv("__EGL_VENDOR_LIBRARY_FILENAMES", "/usr/share/glvnd/egl_vendor.d/50_mesa.json");
+    }
+
     // IM Config
     // qputenv("GTK_IM_MODULE", "fcitx5");
     // qputenv("QT4_IM_MODULE", "fcitx5");

@@ -26,6 +26,16 @@ export QT_ENABLE_HIGHDPI_SCALING=0
 export QT_AUTO_SCREEN_SCALE_FACTOR=0
 export QT_SCALE_FACTOR=1.0
 
+# Memory tuning for glibc allocator across all desktop processes
+export MALLOC_ARENA_MAX=2
+export MALLOC_TRIM_THRESHOLD_=131072
+export MALLOC_MMAP_THRESHOLD_=65536
+
+# Prevent NVIDIA driver bloat when running on non-NVIDIA GPUs
+if [ ! -e /dev/nvidia0 ] && [ -f /usr/share/glvnd/egl_vendor.d/50_mesa.json ]; then
+    export __EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json
+fi
+
 # Pre-build or refresh ksycoca application database cache before KWin starts
 if command -v kbuildsycoca6 >/dev/null 2>&1; then
     kbuildsycoca6 --noincremental >/dev/null 2>&1 &
