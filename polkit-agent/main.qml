@@ -35,7 +35,7 @@ Item {
     Rectangle {
         id: _background
         anchors.fill: parent
-        radius: FishUI.Theme.bigRadius
+        radius: FishUI.Theme.windowRadius
         color: FishUI.Theme.secondBackgroundColor
     }
 
